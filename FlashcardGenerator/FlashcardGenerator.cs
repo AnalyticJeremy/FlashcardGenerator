@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using System.Drawing.Drawing2D;
 
 namespace FlashcardGenerator
 {
@@ -100,56 +101,26 @@ namespace FlashcardGenerator
             }
         }
 
-        private static void GenerateCardImageSideImage(XmlNode xmlNode, XmlNode itemNode, Image baseImage, string fullOutputFileName) {
+        private static void GenerateCardImageSideImage(XmlNode sideNode, XmlNode itemNode, Image baseImage, string fullOutputFileName) {
         }
 
-        private static void GenerateCardTextSideImage(XmlNode xmlNode, XmlNode itemNode, Image baseImage, string fullOutputFileName) {
-            var lineNodes = GeneratorXmlFile.GetXmlNodeList(xmlNode, "text/line");
+        private static void GenerateCardTextSideImage(XmlNode sideNode, XmlNode itemNode, Image baseImage, string fullOutputFileName) {
+            var textLines = TextLines.ParseXmlNode(sideNode, itemNode, baseImage);
+            var origin = textLines.Origin;
 
-            foreach (var lineNode in lineNodes) {
-                string text = "";
+            using (var graphicsPath = new GraphicsPath()) {
+                foreach (var textLine in textLines) {
+                    textLine.AddLineToPath(graphicsPath, origin);
 
-                foreach (XmlNode childNode in lineNode.ChildNodes) {
-                    if (childNode.Name == "element") {
-                        string elementName = GeneratorXmlFile.GetAttributeValue(childNode, "name");
-                        text += itemNode.SelectSingleNode(elementName).InnerText;
-                    }
-                    else if (childNode.Name == "label") {
-                        text += childNode.InnerText;
-                    }
+                    var size = textLine.ComputeSize(textLines.Graphics);
+                    origin.Y += (int) size.Height;
                 }
 
-                var graphics = Graphics.FromImage(baseImage);
-                float size = DetermineMaxSizeForString(text, baseImage.Width, graphics);
-                var font = GetBaseFont(size);
-
-                var graphicsPath = new System.Drawing.Drawing2D.GraphicsPath();
-
-                // Set up all the string parameters.
-                Point origin = new Point(20, 20);
-                StringFormat format = StringFormat.GenericDefault;
-
-                // Add the string to the path.
-                graphicsPath.AddString(text, font.FontFamily, (int) font.Style, font.Size, origin, StringFormat.GenericTypographic);
-
-                //Draw the path to the screen.
-                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                graphics.FillPath(Brushes.White, graphicsPath);
-                graphics.DrawPath(new Pen(Brushes.Black, 2), graphicsPath);
-
-                baseImage.Save(fullOutputFileName, ImageFormat.Png);
-            }
-        }
-
-        private static float DetermineMaxSizeForString(string text, int imageWidth, Graphics graphics) {
-            double targetSize = imageWidth * 0.80;
-            var font = GetBaseFont();
-
-            while (graphics.MeasureString(text, font).Width < targetSize) {
-                font = new Font(font.FontFamily, font.Size + 1, font.Style, font.Unit);
+                textLines.DrawPath(graphicsPath);
             }
 
-            return font.Size - 5;
+            baseImage.Save(fullOutputFileName, ImageFormat.Png);
+            textLines.Dispose();
         }
 
         private static CardSideType DetermineCardSideType(XmlNode xmlNode) {
@@ -194,15 +165,6 @@ namespace FlashcardGenerator
             }
 
             return output;
-        }
-
-        private static Font GetBaseFont() {
-            return GetBaseFont(10);
-        }
-
-        private static Font GetBaseFont(float size) {
-            var fontFamily = new FontFamily("Verdana");
-            return new Font(fontFamily, size, FontStyle.Bold, GraphicsUnit.Pixel);
         }
     }
 
