@@ -48,9 +48,8 @@ namespace FlashcardGenerator
 
         public Point Origin {
             get {
-                int x = (this.BaseImageSize.Width - this.Width) / 2;
-                int y = (this.BaseImageSize.Height - this.Height) / 2;
-                return new Point(x, y);
+                var size = new Size(this.Width, this.Height);
+                return FlashcardGenerator.ComputeOrigin(this.BaseImageSize, size);
             }
         }
         #endregion

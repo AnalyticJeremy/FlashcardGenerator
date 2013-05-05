@@ -24,7 +24,14 @@ namespace FlashcardGenerator
 
         public string KeyElementName {
             get {
-                return GetAttributeValue(this.DocumentElement, "key");
+                string output = GetAttributeValue(this.DocumentElement, "key");
+
+                if (output == "") {
+                    throw new XmlException("\"items\" element does not contain a \"key\" attribute.");
+                }
+                else {
+                    return output;
+                }
             }
         }
 
@@ -41,10 +48,20 @@ namespace FlashcardGenerator
         }
         #endregion
 
+        public string GetKeyValueFromItemNode(XmlNode itemNode) {
+            return itemNode.SelectSingleNode(this.KeyElementName).InnerText;
+        }
+
+        public string ApplyKeyValueToString(string formatString, XmlNode itemNode) {
+            string keyValue = GetKeyValueFromItemNode(itemNode);
+            return formatString.Replace(KeyValueMarker, keyValue);
+        }
+
         public static string BuildFilePath(string inputDirectory) {
             return Path.Combine(inputDirectory, ItemsFileName);
         }
 
         public const string ItemsFileName = "items.xml";
+        public const string KeyValueMarker = "{key}";
     }
 }

@@ -18,7 +18,7 @@ namespace FlashcardGenerator
         #endregion
 
         #region Properties
-        protected string BaseDirectory {
+        public string BaseDirectory {
             get {
                 return baseDirectory;
             }

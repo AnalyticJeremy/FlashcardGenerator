@@ -24,6 +24,9 @@ namespace FlashcardGenerator
 
         public static void Generate(string inputDirectory, IOutputForm outputForm) {
             try {
+                outputForm.WriteOutputMessage("Starting flashcard generation...");
+                outputForm.WriteOutputMessage("");
+
                 InputDirectory = inputDirectory;
 
                 ValidateInput();
@@ -35,6 +38,9 @@ namespace FlashcardGenerator
                 foreach (var card in deckFile.Cards) {
                     GenerateCardImages(card, itemsFile, deckFile, outputForm);
                 }
+
+                outputForm.WriteOutputMessage("");
+                outputForm.WriteOutputMessage("Done!", Color.Green);
             }
             catch (Exception exception) {
                 outputForm.WriteOutputErrorMessage("");
@@ -86,23 +92,82 @@ namespace FlashcardGenerator
             var baseImage = Image.FromFile(baseImagePath);
 
             foreach (var item in itemsFile.Items) {
-                string keyValue = item.SelectSingleNode(itemsFile.KeyElementName).InnerText;
+                string keyValue = itemsFile.GetKeyValueFromItemNode(item);
                 string outputFilename = string.Format("{0}-{1}-{2}.png", cardID, keyValue, sideCounter).ToLower();
                 string fullOutputFileName = Path.Combine(OutputDirectory, deckFile.MediaDirectoryName, outputFilename);
 
                 if (cardSideTypeID == CardSideType.Image) {
                     outputForm.WriteOutputMessage("   - Generating image card side file " + outputFilename);
-                    GenerateCardImageSideImage(sideNode, item, (Image) baseImage.Clone(), fullOutputFileName);
+                    GenerateCardImageSideImage(sideNode, item, itemsFile, (Image) baseImage.Clone(), fullOutputFileName);
                 }
                 else if (cardSideTypeID == CardSideType.Text) {
                     outputForm.WriteOutputMessage("   - Generating text card side file " + outputFilename);
                     GenerateCardTextSideImage(sideNode, item, (Image) baseImage.Clone(), fullOutputFileName);
                 }
             }
+
+            baseImage.Dispose();
         }
 
-        private static void GenerateCardImageSideImage(XmlNode sideNode, XmlNode itemNode, Image baseImage, string fullOutputFileName) {
+        #region GenerateCardImageSideImage
+        private static void GenerateCardImageSideImage(XmlNode sideNode, XmlNode itemNode, ItemsFile itemsFile, Image baseImage, string fullOutputFileName) {
+            var imageNode = sideNode.SelectSingleNode("image");
+            string imageNameFormat = GeneratorXmlFile.GetAttributeValue(imageNode, "name");
+
+            if (imageNameFormat == "") {
+                throw new XmlException("\"image\" node does not have \"name\" attribute.");
+            }
+
+            string imageName = itemsFile.ApplyKeyValueToString(imageNameFormat, itemNode);
+            string fullImageFileName = Path.Combine(itemsFile.BaseDirectory, imageName);
+
+            var itemImage = Image.FromFile(fullImageFileName);
+            itemImage = AddBorderToImage(itemImage);
+            itemImage = ScaleImage(itemImage, new Size(baseImage.Width - 10, baseImage.Height - 10));
+
+            using (var graphics = Graphics.FromImage(baseImage)) {
+                var point = ComputeOrigin(baseImage.Size, itemImage.Size);
+                var rectangle = new Rectangle(point, itemImage.Size);
+
+                graphics.DrawImage(itemImage, rectangle);
+            }
+
+            baseImage.Save(fullOutputFileName, ImageFormat.Png);
+
+            baseImage.Dispose();
         }
+
+        private static Bitmap AddBorderToImage(Image inputImage) {
+            Bitmap newImage = new Bitmap(inputImage.Width + 2, inputImage.Height + 2);
+            var rectangle = new Rectangle(new Point(1, 1), inputImage.Size);
+        
+            using (Graphics graphics = Graphics.FromImage(newImage)) {
+                graphics.Clear(Color.Black);
+                graphics.DrawImage(inputImage, rectangle);
+            }
+
+            return newImage;
+        }
+
+        private static Image ScaleImage(Image image, Size maxSize) {
+            if (image.Width <= maxSize.Width && image.Height <= maxSize.Height) {
+                return image;
+            }
+            else {
+                var ratioX = (double) maxSize.Width / image.Width;
+                var ratioY = (double) maxSize.Height / image.Height;
+                var ratio = Math.Min(ratioX, ratioY);
+
+                var newWidth = (int)(image.Width * ratio);
+                var newHeight = (int)(image.Height * ratio);
+
+                var newImage = new Bitmap(newWidth, newHeight);
+                Graphics.FromImage(newImage).DrawImage(image, 0, 0, newWidth, newHeight);
+
+                return newImage;
+            }
+        }
+        #endregion
 
         private static void GenerateCardTextSideImage(XmlNode sideNode, XmlNode itemNode, Image baseImage, string fullOutputFileName) {
             var textLines = TextLines.ParseXmlNode(sideNode, itemNode, baseImage);
@@ -165,6 +230,12 @@ namespace FlashcardGenerator
             }
 
             return output;
+        }
+
+        public static Point ComputeOrigin(Size baseSize, Size itemSize) {
+            int x = (baseSize.Width - itemSize.Width) / 2;
+            int y = (baseSize.Height - itemSize.Height) / 2;
+            return new Point(x, y);
         }
     }
 
