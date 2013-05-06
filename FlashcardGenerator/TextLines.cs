@@ -75,14 +75,14 @@ namespace FlashcardGenerator
             var textNode = sideNode.SelectSingleNode("text");
             var lineNodes = GeneratorXmlFile.GetXmlNodeList(textNode, "line");
 
-            output.top = GetIntFromAttribute(textNode, "top", -1);
+            output.top = GeneratorXmlFile.GetIntFromAttribute(textNode, "top", -1);
 
             foreach (var lineNode in lineNodes) {
                 var textLine = new TextLine();
 
-                textLine.Margin = GetIntFromAttribute(lineNode, "margin", 0);
-                textLine.FontSize = GetIntFromAttribute(lineNode, "font-size", 0);
-                textLine.Left = GetIntFromAttribute(lineNode, "left", -1);
+                textLine.Margin = GeneratorXmlFile.GetIntFromAttribute(lineNode, "margin", 0);
+                textLine.FontSize = GeneratorXmlFile.GetIntFromAttribute(lineNode, "font-size", 0);
+                textLine.Left = GeneratorXmlFile.GetIntFromAttribute(lineNode, "left", -1);
                 textLine.TabStops = GeneratorXmlFile.GetAttributeValue(lineNode, "tab-stops");
 
                 foreach (XmlNode childNode in lineNode.ChildNodes) {
@@ -111,17 +111,6 @@ namespace FlashcardGenerator
                 textLine.Font = TextLine.GetBaseFont(size);
 
                 output.Add(textLine);
-            }
-
-            return output;
-        }
-
-        private static int GetIntFromAttribute(XmlNode xmlNode, string name, int defaultValue) {
-            string attributeValue = GeneratorXmlFile.GetAttributeValue(xmlNode, name);
-            int output = defaultValue;
-
-            if (attributeValue != "") {
-                int.TryParse(attributeValue, out output);
             }
 
             return output;

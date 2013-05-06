@@ -59,6 +59,17 @@ namespace FlashcardGenerator
             }
         }
 
+        public static int GetIntFromAttribute(XmlNode xmlNode, string name, int defaultValue) {
+            string attributeValue = GetAttributeValue(xmlNode, name);
+            int output = defaultValue;
+
+            if (attributeValue != "") {
+                int.TryParse(attributeValue, out output);
+            }
+
+            return output;
+        }
+
         private string baseDirectory = null;
     }
 }

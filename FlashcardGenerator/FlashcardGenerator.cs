@@ -149,6 +149,7 @@ namespace FlashcardGenerator
         private static void GenerateCardImageSideImage(XmlNode sideNode, XmlNode itemNode, ItemsFile itemsFile, Image baseImage, string fullOutputFileName) {
             var imageNode = sideNode.SelectSingleNode("image");
             string imageNameFormat = GeneratorXmlFile.GetAttributeValue(imageNode, "name");
+            int borderWidth = GeneratorXmlFile.GetIntFromAttribute(imageNode, "border-width", 0);
 
             if (imageNameFormat == "") {
                 throw new XmlException("\"image\" node does not have \"name\" attribute.");
@@ -158,7 +159,7 @@ namespace FlashcardGenerator
             string fullImageFileName = Path.Combine(itemsFile.BaseDirectory, imageName);
 
             var itemImage = Image.FromFile(fullImageFileName);
-            itemImage = AddBorderToImage(itemImage);
+            itemImage = AddBorderToImage(itemImage, borderWidth);
             itemImage = ScaleImage(itemImage, new Size(baseImage.Width - 10, baseImage.Height - 10));
 
             using (var graphics = Graphics.FromImage(baseImage)) {
@@ -173,16 +174,21 @@ namespace FlashcardGenerator
             baseImage.Dispose();
         }
 
-        private static Bitmap AddBorderToImage(Image inputImage) {
-            Bitmap newImage = new Bitmap(inputImage.Width + 2, inputImage.Height + 2);
-            var rectangle = new Rectangle(new Point(1, 1), inputImage.Size);
-        
-            using (Graphics graphics = Graphics.FromImage(newImage)) {
-                graphics.Clear(Color.Black);
-                graphics.DrawImage(inputImage, rectangle);
+        private static Bitmap AddBorderToImage(Image inputImage, int borderWidth) {
+            if (borderWidth <= 0) {
+                return (Bitmap) inputImage;
             }
+            else {
+                Bitmap newImage = new Bitmap(inputImage.Width + (borderWidth * 2), inputImage.Height + (borderWidth * 2));
+                var rectangle = new Rectangle(new Point(borderWidth, borderWidth), inputImage.Size);
 
-            return newImage;
+                using (Graphics graphics = Graphics.FromImage(newImage)) {
+                    graphics.Clear(Color.Black);
+                    graphics.DrawImage(inputImage, rectangle);
+                }
+
+                return newImage;
+            }
         }
 
         private static Image ScaleImage(Image image, Size maxSize) {
