@@ -90,7 +90,14 @@ namespace FlashcardGenerator
                 foreach (XmlNode childNode in lineNode.ChildNodes) {
                     if (childNode.Name == "element") {
                         string elementName = GeneratorXmlFile.GetAttributeValue(childNode, "name");
-                        textLine.Text += itemNode.SelectSingleNode(elementName).InnerText;
+                        var elementNode = itemNode.SelectSingleNode(elementName);
+
+                        if (elementNode == null) {
+                            throw new XmlException("\"item\" node does not contain a child node named \"" + elementName + "\".");
+                        }
+                        else {
+                            textLine.Text += elementNode.InnerText;
+                        }
                     }
                     else if (childNode.Name == "label") {
                         textLine.Text += childNode.InnerText;
