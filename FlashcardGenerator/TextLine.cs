@@ -31,25 +31,94 @@ namespace FlashcardGenerator
                 font = value;
             }
         }
+
+        public int Margin {
+            get {
+                return margin;
+            }
+            set {
+                margin = value;
+            }
+        }
+
+        public int FontSize {
+            get {
+                return fontSize;
+            }
+            set {
+                fontSize = value;
+            }
+        }
+
+        public int Left {
+            get {
+                return left;
+            }
+            set {
+                left = value;
+            }
+        }
+
+        public string TabStops {
+            get {
+                return tabStops;
+            }
+            set {
+                tabStops = value.Trim();
+            }
+        }
+
+        public StringFormat StringFormat {
+            get {
+                var stringFormat = StringFormat.GenericTypographic;
+
+                if (this.TabStops != "") {
+                    var tabStopStrings = this.TabStops.Split(new char[] { ',' });
+                    var tabStopFloats = new List<float>();
+
+                    foreach (var tabStopString in tabStopStrings) {
+                        float tabStopFloat = 0;
+                        float.TryParse(tabStopString, out tabStopFloat);
+                        tabStopFloats.Add(tabStopFloat);
+                    }
+
+                    stringFormat.SetTabStops(0, tabStopFloats.ToArray());
+                }
+
+                return stringFormat;
+            }
+        }
         #endregion
 
+        public override string ToString() {
+            return "TextLine: " + this.Text;
+        }
+
         public SizeF ComputeSize(Graphics graphics) {
-            return graphics.MeasureString(this.Text, this.Font);
+            return ComputeSize(graphics, this.Font);
+        }
+
+        private SizeF ComputeSize(Graphics graphics, Font font) {
+            return graphics.MeasureString(this.Text, font, 2000, this.StringFormat);
         }
 
         public float DetermineMaxFontSize(int baseImageWidth, Graphics graphics) {
-            double targetSize = baseImageWidth * 0.80;
+            double targetSize = baseImageWidth * 0.95;
             var font = GetBaseFont();
 
-            while (graphics.MeasureString(text, font).Width < targetSize) {
+            while (this.ComputeSize(graphics, font).Width < targetSize) {
                 font = new Font(font.FontFamily, font.Size + 1, font.Style, font.Unit);
             }
 
-            return font.Size - 5;
+            return font.Size - 1;
         }
 
         public void AddLineToPath(GraphicsPath graphicsPath, Point origin) {
-            graphicsPath.AddString(this.Text, this.Font.FontFamily, (int) this.Font.Style, this.Font.Size, origin, StringFormat.GenericTypographic);
+            string formattedText = this.Text;
+
+            formattedText = formattedText.Replace("\\t", new string('\t', 1));
+
+            graphicsPath.AddString(formattedText, this.Font.FontFamily, (int)this.Font.Style, this.Font.Size, origin, this.StringFormat);
         }
 
         public static Font GetBaseFont() {
@@ -63,5 +132,9 @@ namespace FlashcardGenerator
 
         private string text = "";
         private Font font = null;
+        private int fontSize = 0;
+        private int margin = 0;
+        private int left = 0;
+        private string tabStops = "";
     }
 }

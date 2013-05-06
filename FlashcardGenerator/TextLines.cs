@@ -49,7 +49,13 @@ namespace FlashcardGenerator
         public Point Origin {
             get {
                 var size = new Size(this.Width, this.Height);
-                return FlashcardGenerator.ComputeOrigin(this.BaseImageSize, size);
+                var output = FlashcardGenerator.ComputeOrigin(this.BaseImageSize, size);
+
+                if (top >= 0) {
+                    output.Y = top;
+                }
+
+                return output;
             }
         }
         #endregion
@@ -63,15 +69,23 @@ namespace FlashcardGenerator
             // Draw the path onto the base image
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.FillPath(Brushes.White, graphicsPath);
-            graphics.DrawPath(new Pen(Brushes.Black, 2), graphicsPath);
+            graphics.DrawPath(new Pen(Brushes.Black, 1), graphicsPath);
         }
 
         public static TextLines ParseXmlNode(XmlNode sideNode, XmlNode itemNode, Image baseImage) {
             var output = new TextLines(baseImage);
-            var lineNodes = GeneratorXmlFile.GetXmlNodeList(sideNode, "text/line");
+            var textNode = sideNode.SelectSingleNode("text");
+            var lineNodes = GeneratorXmlFile.GetXmlNodeList(textNode, "line");
+
+            output.top = GetIntFromAttribute(textNode, "top", -1);
 
             foreach (var lineNode in lineNodes) {
                 var textLine = new TextLine();
+
+                textLine.Margin = GetIntFromAttribute(lineNode, "margin", 0);
+                textLine.FontSize = GetIntFromAttribute(lineNode, "font-size", 0);
+                textLine.Left = GetIntFromAttribute(lineNode, "left", -1);
+                textLine.TabStops = GeneratorXmlFile.GetAttributeValue(lineNode, "tab-stops");
 
                 foreach (XmlNode childNode in lineNode.ChildNodes) {
                     if (childNode.Name == "element") {
@@ -83,7 +97,12 @@ namespace FlashcardGenerator
                     }
                 }
 
-                float size = textLine.DetermineMaxFontSize(output.BaseImageSize.Width, output.Graphics);
+
+                float size = textLine.FontSize;
+                float maxSize = textLine.DetermineMaxFontSize(output.BaseImageSize.Width, output.Graphics);
+                if (size <= 0 || size > maxSize) {
+                    size = maxSize;
+                }
                 textLine.Font = TextLine.GetBaseFont(size);
 
                 output.Add(textLine);
@@ -92,6 +111,18 @@ namespace FlashcardGenerator
             return output;
         }
 
+        private static int GetIntFromAttribute(XmlNode xmlNode, string name, int defaultValue) {
+            string attributeValue = GeneratorXmlFile.GetAttributeValue(xmlNode, name);
+            int output = defaultValue;
+
+            if (attributeValue != "") {
+                int.TryParse(attributeValue, out output);
+            }
+
+            return output;
+        }
+
+        private int top = -1;
         private Image baseImage = null;
         private Graphics graphics = null;
     }

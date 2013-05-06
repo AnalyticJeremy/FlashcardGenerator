@@ -39,6 +39,10 @@ namespace FlashcardGenerator
                     GenerateCardImages(card, itemsFile, deckFile, outputForm);
                 }
 
+                foreach (var template in deckFile.Templates) {
+                    GenerateCardImages(template, itemsFile, deckFile, outputForm);
+                }
+
                 outputForm.WriteOutputMessage("");
                 outputForm.WriteOutputMessage("Done!", Color.Green);
             }
@@ -78,11 +82,17 @@ namespace FlashcardGenerator
             string cardID = GeneratorXmlFile.GetAttributeValue(cardNode, "id");
             int sideCounter = 0;
 
-            foreach (XmlNode sideNode in cardNode.SelectNodes("side")) {
-                sideCounter++;
+            if (cardNode.Name == "card") {
+                foreach (XmlNode sideNode in cardNode.SelectNodes("side")) {
+                    sideCounter++;
 
-                outputForm.WriteOutputMessage(string.Format("Generating side {0} of card \"{1}\"", sideCounter, cardID));
-                GenerateCardSideImage(sideNode, sideCounter, cardNode, cardID, itemsFile, deckFile, outputForm);
+                    outputForm.WriteOutputMessage(string.Format("Generating side {0} of card \"{1}\"", sideCounter, cardID));
+                    GenerateCardSideImage(sideNode, sideCounter, cardNode, cardID, itemsFile, deckFile, outputForm);
+                }
+            }
+            else {
+                outputForm.WriteOutputMessage(string.Format("Generating template \"{1}\"", sideCounter, cardID));
+                GenerateCardSideImage(cardNode, sideCounter, cardNode, cardID, itemsFile, deckFile, outputForm);
             }
         }
 
@@ -93,20 +103,30 @@ namespace FlashcardGenerator
 
             foreach (var item in itemsFile.Items) {
                 string keyValue = itemsFile.GetKeyValueFromItemNode(item);
-                string outputFilename = string.Format("{0}-{1}-{2}.png", cardID, keyValue, sideCounter).ToLower();
-                string fullOutputFileName = Path.Combine(OutputDirectory, deckFile.MediaDirectoryName, outputFilename);
+                string outputFileName = BuildOutputFileName(cardID, keyValue, sideCounter);
+                string fullOutputFileName = Path.Combine(OutputDirectory, deckFile.MediaDirectoryName, outputFileName);
 
                 if (cardSideTypeID == CardSideType.Image) {
-                    outputForm.WriteOutputMessage("   - Generating image card side file " + outputFilename);
+                    outputForm.WriteOutputMessage("   - Generating image card side file " + outputFileName);
                     GenerateCardImageSideImage(sideNode, item, itemsFile, (Image) baseImage.Clone(), fullOutputFileName);
                 }
                 else if (cardSideTypeID == CardSideType.Text) {
-                    outputForm.WriteOutputMessage("   - Generating text card side file " + outputFilename);
+                    outputForm.WriteOutputMessage("   - Generating text card side file " + outputFileName);
                     GenerateCardTextSideImage(sideNode, item, (Image) baseImage.Clone(), fullOutputFileName);
                 }
             }
 
             baseImage.Dispose();
+        }
+
+        private static string BuildOutputFileName(string cardID, string keyValue, int sideCounter) {
+            string sideCounterValue = "";
+
+            if (sideCounter != 0) {
+                sideCounterValue = "-" + sideCounter.ToString();
+            }
+
+            return string.Format("{0}-{1}{2}.png", cardID, keyValue, sideCounterValue).ToLower();
         }
 
         #region GenerateCardImageSideImage
@@ -171,14 +191,23 @@ namespace FlashcardGenerator
 
         private static void GenerateCardTextSideImage(XmlNode sideNode, XmlNode itemNode, Image baseImage, string fullOutputFileName) {
             var textLines = TextLines.ParseXmlNode(sideNode, itemNode, baseImage);
-            var origin = textLines.Origin;
+            int y = textLines.Origin.Y;
 
             using (var graphicsPath = new GraphicsPath()) {
                 foreach (var textLine in textLines) {
-                    textLine.AddLineToPath(graphicsPath, origin);
+                    var lineSize = textLine.ComputeSize(textLines.Graphics);
+                    int x = textLine.Left;
 
-                    var size = textLine.ComputeSize(textLines.Graphics);
-                    origin.Y += (int) size.Height;
+                    if (x < 0) {
+                        x = ComputeOriginDimension(baseImage.Width, (int) lineSize.Width);
+                    }
+
+                    var lineOrigin = new Point(x, y);
+
+                    textLine.AddLineToPath(graphicsPath, lineOrigin);
+
+                    y += (int) lineSize.Height;
+                    y += textLine.Margin;
                 }
 
                 textLines.DrawPath(graphicsPath);
@@ -233,9 +262,13 @@ namespace FlashcardGenerator
         }
 
         public static Point ComputeOrigin(Size baseSize, Size itemSize) {
-            int x = (baseSize.Width - itemSize.Width) / 2;
-            int y = (baseSize.Height - itemSize.Height) / 2;
+            int x = ComputeOriginDimension(baseSize.Width, itemSize.Width);
+            int y = ComputeOriginDimension(baseSize.Height, itemSize.Height);
             return new Point(x, y);
+        }
+
+        private static int ComputeOriginDimension(int baseDimension, int itemDimension) {
+            return (baseDimension - itemDimension) / 2;
         }
     }
 
