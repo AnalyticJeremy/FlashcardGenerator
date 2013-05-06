@@ -20,6 +20,8 @@ namespace FlashcardGenerator
                 return Path.Combine(InputDirectory, "output");
             }
         }
+
+        private static OutputDeckFile OutputDeckFile { get; set; }
         #endregion
 
         public static void Generate(string inputDirectory, IOutputForm outputForm) {
@@ -28,6 +30,7 @@ namespace FlashcardGenerator
                 outputForm.WriteOutputMessage("");
 
                 InputDirectory = inputDirectory;
+                OutputDeckFile = new OutputDeckFile();
 
                 ValidateInput();
                 var itemsFile = new ItemsFile(inputDirectory);
@@ -42,6 +45,10 @@ namespace FlashcardGenerator
                 foreach (var template in deckFile.Templates) {
                     GenerateCardImages(template, itemsFile, deckFile, outputForm);
                 }
+
+                outputForm.WriteOutputMessage("");
+                outputForm.WriteOutputMessage("Writing output deck file...");
+                OutputDeckFile.WriteFile(OutputDirectory, deckFile.DeckName);
 
                 outputForm.WriteOutputMessage("");
                 outputForm.WriteOutputMessage("Done!", Color.Green);
@@ -106,13 +113,25 @@ namespace FlashcardGenerator
                 string outputFileName = BuildOutputFileName(cardID, keyValue, sideCounter);
                 string fullOutputFileName = Path.Combine(OutputDirectory, deckFile.MediaDirectoryName, outputFileName);
 
-                if (cardSideTypeID == CardSideType.Image) {
-                    outputForm.WriteOutputMessage("   - Generating image card side file " + outputFileName);
-                    GenerateCardImageSideImage(sideNode, item, itemsFile, (Image) baseImage.Clone(), fullOutputFileName);
+                switch (cardSideTypeID) {
+                    case CardSideType.Image:
+                        outputForm.WriteOutputMessage(string.Format("   - Generating image card side file \"{0}\"", outputFileName));
+                        GenerateCardImageSideImage(sideNode, item, itemsFile, (Image) baseImage.Clone(), fullOutputFileName);
+                        break;
+
+                    case CardSideType.Text:
+                        outputForm.WriteOutputMessage(string.Format("   - Generating text card side file \"{0}\"", outputFileName));
+                        GenerateCardTextSideImage(sideNode, item, (Image) baseImage.Clone(), fullOutputFileName);
+                        break;
+
+                    case CardSideType.Templated:
+                        string templateID = GeneratorXmlFile.GetAttributeValue(sideNode.FirstChild, "id");
+                        outputFileName = BuildOutputFileName(templateID, keyValue, 0);
+                        break;
                 }
-                else if (cardSideTypeID == CardSideType.Text) {
-                    outputForm.WriteOutputMessage("   - Generating text card side file " + outputFileName);
-                    GenerateCardTextSideImage(sideNode, item, (Image) baseImage.Clone(), fullOutputFileName);
+
+                if (cardNode.Name == "card") {
+                    OutputDeckFile.Add(cardID, keyValue, outputFileName);
                 }
             }
 
